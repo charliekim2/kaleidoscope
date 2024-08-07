@@ -279,9 +279,117 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
   }
 }
 
+// Other parsing
+static std::unique_ptr<PrototypeAST> ParsePrototype() {
+  if (CurTok != tok_identifier) {
+    return LogErrorP("Expected function name in prototype");
+  }
+
+  std::string FnName = IdentifierStr;
+  getNextToken();
+
+  if (CurTok != '(') {
+    return LogErrorP("Expected '(' in prototype");
+  }
+
+  std::vector<std::string> ArgNames;
+  while (getNextToken() == tok_identifier) {
+    ArgNames.push_back(IdentifierStr);
+  }
+
+  if (CurTok != ')') {
+    return LogErrorP("Expected ')' in prototype");
+  }
+
+  getNextToken();
+
+  return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
+}
+
+static std::unique_ptr<FunctionAST> ParseDefinition() {
+  getNextToken();
+  auto Proto = ParsePrototype();
+  if (!Proto) {
+    return nullptr;
+  }
+
+  if (auto E = ParseExpression()) {
+    return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+  }
+  return nullptr;
+}
+
+static std::unique_ptr<PrototypeAST> ParseExtern() {
+  getNextToken();
+  return ParsePrototype();
+}
+
+static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
+  if (auto E = ParseExpression()) {
+    auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
+    return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+  }
+  return nullptr;
+}
+
+// Attempt to parse tokens and notify type of token
+static void HandleDefinition() {
+  if (ParseDefinition()) {
+    fprintf(stderr, "Parsed a definition\n");
+  } else {
+    getNextToken();
+  }
+}
+
+static void HandleExtern() {
+  if (ParseExtern()) {
+    fprintf(stderr, "Parsed an extern\n");
+  } else {
+    getNextToken();
+  }
+}
+
+static void HandleTopLevelExpression() {
+  if (ParseTopLevelExpr()) {
+    fprintf(stderr, "Parsed a top level expression\n");
+  } else {
+    getNextToken();
+  }
+}
+
+// Get tokens from stdin and parse them
+static void MainLoop() {
+  while (true) {
+    fprintf(stderr, "ready> ");
+    switch (CurTok) {
+    case tok_eof:
+      return;
+    case ';':
+      getNextToken();
+      break;
+    case tok_def:
+      HandleDefinition();
+      break;
+    case tok_extern:
+      HandleExtern();
+      break;
+    default:
+      HandleTopLevelExpression();
+      break;
+    }
+  }
+}
+
 int main() {
   BinopPrecedence['<'] = 10;
   BinopPrecedence['+'] = 20;
   BinopPrecedence['-'] = 20;
   BinopPrecedence['*'] = 40;
+
+  fprintf(stderr, "ready> ");
+  getNextToken();
+
+  MainLoop();
+
+  return 0;
 }
