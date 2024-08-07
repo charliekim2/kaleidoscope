@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <map>
 #include <memory>
+#include <stdio.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -358,9 +359,11 @@ static void HandleTopLevelExpression() {
 }
 
 // Get tokens from stdin and parse them
-static void MainLoop() {
+static void MainLoop(const char *filename) {
+  std::freopen(filename, "rt", stdin);
+  getNextToken();
+
   while (true) {
-    fprintf(stderr, "ready> ");
     switch (CurTok) {
     case tok_eof:
       return;
@@ -380,16 +383,18 @@ static void MainLoop() {
   }
 }
 
-int main() {
+int main(int argc, const char *argv[]) {
   BinopPrecedence['<'] = 10;
   BinopPrecedence['+'] = 20;
   BinopPrecedence['-'] = 20;
   BinopPrecedence['*'] = 40;
 
-  fprintf(stderr, "ready> ");
-  getNextToken();
+  if (argc != 2) {
+    fprintf(stderr, "Enter filename to parse");
+    return -1;
+  }
 
-  MainLoop();
+  MainLoop(argv[1]);
 
   return 0;
 }
